@@ -99,10 +99,6 @@ export default function Home() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.logo}>FitLog</Text>
-
-        <Text style={styles.subtitle}>
-          Seus treinos em um só lugar
-        </Text>
       </View>
 
       <View style={styles.content}>
@@ -258,7 +254,7 @@ const styles = StyleSheet.create({
   },
 
   descricao: {
-    color: "#666666",
+    color: "#323131",
     marginTop: 8,
     marginBottom: 15,
   },
