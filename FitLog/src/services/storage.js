@@ -1,17 +1,28 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const CHAVE = "@fitlog_treinos";
+const CHAVE_STORAGE = "@fitlog:treinos";
 
-export async function buscarTreinos() {
-  const dados = await AsyncStorage.getItem(CHAVE);
+export async function buscarTreinosStorage() {
+  try {
+    const dados = await AsyncStorage.getItem(CHAVE_STORAGE);
 
-  if (!dados) {
+    if (!dados) {
+      return [];
+    }
+
+    return JSON.parse(dados);
+  } catch (error) {
+    console.error("Erro ao buscar treinos:", error);
     return [];
   }
-
-  return JSON.parse(dados);
 }
 
-export async function salvarTreinos(treinos) {
-  await AsyncStorage.setItem(CHAVE, JSON.stringify(treinos));
+export async function salvarTreinosStorage(treinos) {
+  try {
+    await AsyncStorage.setItem(CHAVE_STORAGE, JSON.stringify(treinos));
+  } catch (error) {
+    console.error("Erro ao salvar treinos:", error);
+
+    throw new Error("Não foi possível salvar os treinos.");
+  }
 }
