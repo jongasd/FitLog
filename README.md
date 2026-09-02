@@ -6,7 +6,7 @@ App mobile/web feito com Expo para registrar treinos de academia: cadastrar, mar
 
 - [Expo](https://expo.dev) 57 + Expo Router (roteamento por arquivos)
 - React Native 0.86 / React 19
-- TypeScript
+- Javascript
 - `@react-native-async-storage/async-storage` para persistência local
 
 ## Funcionalidades
