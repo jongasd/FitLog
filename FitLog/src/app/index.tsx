@@ -1,98 +1,336 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from "expo-router";
+import {
+  StyleSheet,
+  Text,
+  View,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import { useCallback, useState } from "react";
+import { buscarTreinos, salvarTreinos } from "../services/storage";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+type Treino = {
+  id: string;
+  nome: string;
+  descricao: string;
+  concluido: boolean;
+};
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+export default function Home() {
+  const [treinos, setTreinos] = useState<Treino[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  async function carregarTreinos() {
+    try {
+      const dados = await buscarTreinos();
+
+      if (dados.length === 0) {
+        const treinosIniciais: Treino[] = [
+          {
+            id: "1",
+            nome: "Treino de Peito",
+            descricao: "Supino, crucifixo e flexão",
+            concluido: false,
+          },
+          {
+            id: "2",
+            nome: "Treino de Pernas",
+            descricao: "Agachamento, leg press e extensora",
+            concluido: true,
+          },
+        ];
+
+        await salvarTreinos(treinosIniciais);
+        setTreinos(treinosIniciais);
+      } else {
+        setTreinos(dados);
+      }
+    } catch (error) {
+      console.log("Erro ao carregar treinos:", error);
+    } finally {
+      setCarregando(false);
+    }
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarTreinos();
+    }, [])
+  );
+
+  async function concluirTreino(id: string) {
+    const novosTreinos = treinos.map((treino) =>
+      treino.id === id
+        ? { ...treino, concluido: !treino.concluido }
+        : treino
+    );
+
+    setTreinos(novosTreinos);
+    await salvarTreinos(novosTreinos);
+  }
+
+  function excluirTreino(id: string) {
+    Alert.alert(
+      "Excluir treino",
+      "Tem certeza que deseja excluir este treino?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            const novosTreinos = treinos.filter(
+              (treino) => treino.id !== id
+            );
+
+            setTreinos(novosTreinos);
+            await salvarTreinos(novosTreinos);
+          },
+        },
+      ]
     );
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.logo}>FitLog</Text>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+        <Text style={styles.subtitle}>
+          Seus treinos em um só lugar
+        </Text>
+      </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <View style={styles.content}>
+        <Text style={styles.title}>Meus treinos</Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+        {carregando ? (
+          <Text>Carregando...</Text>
+        ) : (
+          <FlatList
+            data={treinos}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <Text style={styles.empty}>
+                Nenhum treino cadastrado.
+              </Text>
+            }
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.nome}>{item.nome}</Text>
+
+                  <View
+                    style={[
+                      styles.status,
+                      item.concluido
+                        ? styles.statusConcluido
+                        : styles.statusPendente,
+                    ]}
+                  >
+                    <Text style={styles.statusText}>
+                      {item.concluido
+                        ? "Concluído"
+                        : "Pendente"}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.descricao}>
+                  {item.descricao}
+                </Text>
+
+                <View style={styles.actions}>
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={() => concluirTreino(item.id)}
+                  >
+                    <Text style={styles.buttonText}>
+                      {item.concluido
+                        ? "Desmarcar"
+                        : "Concluir"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/explore",
+                        params: {
+                          id: item.id,
+                        },
+                      })
+                    }
+                  >
+                    <Text style={styles.buttonText}>
+                      Editar
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => excluirTreino(item.id)}
+                  >
+                    <Text style={styles.deleteText}>
+                      Excluir
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        )}
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => router.push("/explore")}
+        >
+          <Text style={styles.addButtonText}>
+            + Novo treino
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: "#f5f5f5",
   },
-  safeArea: {
+
+  header: {
+    backgroundColor: "#111111",
+    paddingTop: 60,
+    paddingBottom: 25,
+    paddingHorizontal: 25,
+  },
+
+  logo: {
+    color: "#ffffff",
+    fontSize: 32,
+    fontWeight: "bold",
+  },
+
+  subtitle: {
+    color: "#aaaaaa",
+    fontSize: 14,
+    marginTop: 5,
+  },
+
+  content: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    padding: 20,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
+
   title: {
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 15,
+    color: "#111111",
   },
-  code: {
-    textTransform: 'uppercase',
+
+  card: {
+    backgroundColor: "#ffffff",
+    borderRadius: 15,
+    padding: 18,
+    marginBottom: 15,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  nome: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#111111",
+    flex: 1,
+  },
+
+  descricao: {
+    color: "#666666",
+    marginTop: 8,
+    marginBottom: 15,
+  },
+
+  status: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+
+  statusConcluido: {
+    backgroundColor: "#dff5e5",
+  },
+
+  statusPendente: {
+    backgroundColor: "#eeeeee",
+  },
+
+  statusText: {
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
+  actions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  button: {
+    backgroundColor: "#111111",
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+
+  buttonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
+  deleteButton: {
+    borderWidth: 1,
+    borderColor: "#dddddd",
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+
+  deleteText: {
+    color: "#555555",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
+  addButton: {
+    backgroundColor: "#111111",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  addButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+  empty: {
+    textAlign: "center",
+    color: "#777777",
+    marginTop: 30,
   },
 });
