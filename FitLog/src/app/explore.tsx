@@ -1,180 +1,227 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  router,
+  useLocalSearchParams,
+} from "expo-router";
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Alert,
+} from "react-native";
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
+import { useEffect, useState } from "react";
+import {
+  buscarTreinos,
+  salvarTreinos,
+} from "../services/storage";
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+type Treino = {
+  id: string;
+  nome: string;
+  descricao: string;
+  concluido: boolean;
+};
+
+export default function Explore() {
+  const { id } = useLocalSearchParams<{ id?: string }>();
+
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [editando, setEditando] = useState(false);
+
+  useEffect(() => {
+    carregarTreino();
+  }, [id]);
+
+  async function carregarTreino() {
+    if (!id) {
+      setEditando(false);
+      return;
+    }
+
+    try {
+      const treinos: Treino[] = await buscarTreinos();
+
+      const treino = treinos.find(
+        (item) => item.id === id
+      );
+
+      if (treino) {
+        setNome(treino.nome);
+        setDescricao(treino.descricao);
+        setEditando(true);
+      }
+    } catch (error) {
+      console.log("Erro ao carregar treino:", error);
+    }
+  }
+
+  async function salvarTreino() {
+    if (!nome.trim()) {
+      Alert.alert(
+        "Atenção",
+        "Digite o nome do treino."
+      );
+
+      return;
+    }
+
+    try {
+      const treinos: Treino[] = await buscarTreinos();
+
+      if (editando && id) {
+        const novosTreinos = treinos.map(
+          (treino) =>
+            treino.id === id
+              ? {
+                  ...treino,
+                  nome: nome.trim(),
+                  descricao: descricao.trim(),
+                }
+              : treino
+        );
+
+        await salvarTreinos(novosTreinos);
+      } else {
+        const novoTreino: Treino = {
+          id: Date.now().toString(),
+          nome: nome.trim(),
+          descricao: descricao.trim(),
+          concluido: false,
+        };
+
+        await salvarTreinos([
+          ...treinos,
+          novoTreino,
+        ]);
+      }
+
+      router.back();
+    } catch (error) {
+      console.log("Erro ao salvar treino:", error);
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível salvar o treino."
+      );
+    }
+  }
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <View style={styles.container}>
+      <Text style={styles.title}>
+        {editando ? "Editar treino" : "Novo treino"}
+      </Text>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
+      <Text style={styles.label}>
+        Nome do treino
+      </Text>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      <TextInput
+        style={styles.input}
+        placeholder="Ex: Treino de peito"
+        placeholderTextColor="#999"
+        value={nome}
+        onChangeText={setNome}
+      />
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+      <Text style={styles.label}>
+        Descrição
+      </Text>
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      <TextInput
+        style={[styles.input, styles.textArea]}
+        placeholder="Descreva seu treino"
+        placeholderTextColor="#999"
+        multiline
+        numberOfLines={5}
+        value={descricao}
+        onChangeText={setDescricao}
+      />
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      <TouchableOpacity
+        style={styles.saveButton}
+        onPress={salvarTreino}
+      >
+        <Text style={styles.saveText}>
+          {editando
+            ? "Salvar alterações"
+            : "Salvar treino"}
+        </Text>
+      </TouchableOpacity>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+      <TouchableOpacity
+        style={styles.cancelButton}
+        onPress={() => router.back()}
+      >
+        <Text style={styles.cancelText}>
+          Cancelar
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
   container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+    padding: 25,
   },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#111111",
+    marginBottom: 30,
   },
-  centerText: {
-    textAlign: 'center',
+
+  label: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#333333",
+    marginBottom: 8,
   },
-  pressed: {
-    opacity: 0.7,
+
+  input: {
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    padding: 15,
+    fontSize: 16,
+    marginBottom: 20,
+    color: "#111111",
   },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
+
+  textArea: {
+    height: 120,
+    textAlignVertical: "top",
   },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+
+  saveButton: {
+    backgroundColor: "#111111",
+    padding: 16,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
   },
-  collapsibleContent: {
-    alignItems: 'center',
+
+  saveText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
+
+  cancelButton: {
+    padding: 16,
+    alignItems: "center",
+    marginTop: 5,
   },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+
+  cancelText: {
+    color: "#555555",
+    fontSize: 15,
   },
 });
