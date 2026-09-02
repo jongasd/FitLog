@@ -8,7 +8,12 @@ import {
   Alert,
 } from "react-native";
 import { useCallback, useState } from "react";
-import { buscarTreinos, salvarTreinos } from "../services/storage";
+import {
+  listarTreinos,
+  criarTreino,
+  alterarStatusTreino,
+  excluirTreino as excluirTreinoService,
+} from "../services/treinoService";
 
 type Treino = {
   id: string;
@@ -21,33 +26,36 @@ export default function Home() {
   const [treinos, setTreinos] = useState<Treino[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  async function seedTreinosIniciais() {
+    const primeiro = await criarTreino({
+      nome: "Treino de Peito",
+      descricao: "Supino, crucifixo e flexão",
+    });
+
+    const segundo = await criarTreino({
+      nome: "Treino de Pernas",
+      descricao: "Agachamento, leg press e extensora",
+    });
+
+    await alterarStatusTreino(segundo.id);
+
+    return [primeiro, { ...segundo, concluido: true }];
+  }
+
   async function carregarTreinos() {
     try {
-      const dados = await buscarTreinos();
+      const dados = await listarTreinos();
 
       if (dados.length === 0) {
-        const treinosIniciais: Treino[] = [
-          {
-            id: "1",
-            nome: "Treino de Peito",
-            descricao: "Supino, crucifixo e flexão",
-            concluido: false,
-          },
-          {
-            id: "2",
-            nome: "Treino de Pernas",
-            descricao: "Agachamento, leg press e extensora",
-            concluido: true,
-          },
-        ];
-
-        await salvarTreinos(treinosIniciais);
+        const treinosIniciais = await seedTreinosIniciais();
         setTreinos(treinosIniciais);
       } else {
         setTreinos(dados);
       }
     } catch (error) {
       console.log("Erro ao carregar treinos:", error);
+
+      Alert.alert("Erro", "Não foi possível carregar os treinos.");
     } finally {
       setCarregando(false);
     }
@@ -60,14 +68,14 @@ export default function Home() {
   );
 
   async function concluirTreino(id: string) {
-    const novosTreinos = treinos.map((treino) =>
-      treino.id === id
-        ? { ...treino, concluido: !treino.concluido }
-        : treino
-    );
+    try {
+      const novosTreinos = await alterarStatusTreino(id);
+      setTreinos(novosTreinos);
+    } catch (error) {
+      console.log("Erro ao atualizar status do treino:", error);
 
-    setTreinos(novosTreinos);
-    await salvarTreinos(novosTreinos);
+      Alert.alert("Erro", "Não foi possível atualizar o treino.");
+    }
   }
 
   function excluirTreino(id: string) {
@@ -83,12 +91,14 @@ export default function Home() {
           text: "Excluir",
           style: "destructive",
           onPress: async () => {
-            const novosTreinos = treinos.filter(
-              (treino) => treino.id !== id
-            );
+            try {
+              const novosTreinos = await excluirTreinoService(id);
+              setTreinos(novosTreinos);
+            } catch (error) {
+              console.log("Erro ao excluir treino:", error);
 
-            setTreinos(novosTreinos);
-            await salvarTreinos(novosTreinos);
+              Alert.alert("Erro", "Não foi possível excluir o treino.");
+            }
           },
         },
       ]

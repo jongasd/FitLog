@@ -14,16 +14,10 @@ import {
 
 import { useEffect, useState } from "react";
 import {
-  buscarTreinos,
-  salvarTreinos,
-} from "../services/storage";
-
-type Treino = {
-  id: string;
-  nome: string;
-  descricao: string;
-  concluido: boolean;
-};
+  buscarTreinoPorId,
+  criarTreino,
+  atualizarTreino,
+} from "../services/treinoService";
 
 export default function Explore() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -43,69 +37,33 @@ export default function Explore() {
     }
 
     try {
-      const treinos: Treino[] = await buscarTreinos();
+      const treino = await buscarTreinoPorId(id);
 
-      const treino = treinos.find(
-        (item) => item.id === id
-      );
-
-      if (treino) {
-        setNome(treino.nome);
-        setDescricao(treino.descricao);
-        setEditando(true);
-      }
+      setNome(treino.nome);
+      setDescricao(treino.descricao);
+      setEditando(true);
     } catch (error) {
       console.log("Erro ao carregar treino:", error);
+
+      setEditando(false);
     }
   }
 
   async function salvarTreino() {
-    if (!nome.trim()) {
-      Alert.alert(
-        "Atenção",
-        "Digite o nome do treino."
-      );
-
-      return;
-    }
-
     try {
-      const treinos: Treino[] = await buscarTreinos();
-
       if (editando && id) {
-        const novosTreinos = treinos.map(
-          (treino) =>
-            treino.id === id
-              ? {
-                  ...treino,
-                  nome: nome.trim(),
-                  descricao: descricao.trim(),
-                }
-              : treino
-        );
-
-        await salvarTreinos(novosTreinos);
+        await atualizarTreino(id, { nome, descricao });
       } else {
-        const novoTreino: Treino = {
-          id: Date.now().toString(),
-          nome: nome.trim(),
-          descricao: descricao.trim(),
-          concluido: false,
-        };
-
-        await salvarTreinos([
-          ...treinos,
-          novoTreino,
-        ]);
+        await criarTreino({ nome, descricao });
       }
 
       router.back();
-    } catch (error) {
+    } catch (error: any) {
       console.log("Erro ao salvar treino:", error);
 
       Alert.alert(
-        "Erro",
-        "Não foi possível salvar o treino."
+        "Atenção",
+        error?.message ?? "Não foi possível salvar o treino."
       );
     }
   }
