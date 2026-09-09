@@ -2,7 +2,6 @@ import { buscarTreinosStorage, salvarTreinosStorage } from "./storage";
 
 import { validarTreino } from "../utils/treinoValidator";
 
-// CREATE
 export async function criarTreino(dados) {
   const erro = validarTreino(dados);
 
@@ -26,15 +25,11 @@ export async function criarTreino(dados) {
 
   return novoTreino;
 }
-
-// READ
 export async function listarTreinos() {
   const treinos = await buscarTreinosStorage();
 
   return treinos;
 }
-
-// READ POR ID
 export async function buscarTreinoPorId(id) {
   const treinos = await buscarTreinosStorage();
 
@@ -47,7 +42,6 @@ export async function buscarTreinoPorId(id) {
   return treino;
 }
 
-// UPDATE
 export async function atualizarTreino(id, dadosAtualizados) {
   const erro = validarTreino(dadosAtualizados);
 
@@ -81,7 +75,6 @@ export async function atualizarTreino(id, dadosAtualizados) {
   return novaLista;
 }
 
-// UPDATE STATUS
 export async function alterarStatusTreino(id) {
   const treinos = await buscarTreinosStorage();
 
